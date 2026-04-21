@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruta da Velha Tropical 🍓</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        /* TELA DE CAPA (ABERTURA) */
+        #splash-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #22c55e url('capa.png') no-repeat center center;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+
+        #splash-screen h1 {
+            color: white;
+            font-size: 3rem;
+            text-shadow: 2px 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            font-family: 'Comic Sans MS', sans-serif;
+        }
+
+        .btn-jogar {
+            padding: 20px 60px;
+            font-size: 2rem;
+            background: #f59e0b;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 0 #b45309;
+            font-weight: bold;
+            transition: 0.1s;
+        }
+
+        .btn-jogar:active { transform: translateY(4px); box-shadow: 0 4px 0 #b45309; }
+
+        /* ESTILOS DO JOGO */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background-color: #f0fdf4; color: #166534; padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .placar {
+            display: flex; gap: 20px; margin-bottom: 10px;
+            background: white; padding: 15px 25px; border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-weight: bold;
+            font-size: 1.2rem; border: 2px solid #bbf7d0;
+        }
+        .pontos { color: #166534; font-size: 1.5rem; margin-left: 5px; }
+
+        .board { 
+            display: grid; grid-template-columns: repeat(3, 100px); 
+            gap: 10px; margin-top: 10px; 
+        }
+
+        .cell { 
+            width: 100px; height: 100px; background: white; 
+            border: 3px solid #bbf7d0; border-radius: 15px; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 3rem; cursor: pointer; box-shadow: 0 4px 0 #bbf7d0;
+            transition: all 0.1s;
+        }
+        .cell:active { transform: translateY(4px); box-shadow: none; }
+
+        #status { margin: 15px; font-size: 1.2rem; font-weight: bold; min-height: 1.5em; text-align: center; }
+
+        .controles { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        
+        button { 
+            padding: 12px 20px; background: #22c55e; color: white; 
+            border: none; border-radius: 8px; cursor: pointer; 
+            font-weight: bold; box-shadow: 0 4px 0 #166534;
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 2px 0 #166534; }
+        
+        .btn-sorteio { background: #f59e0b; box-shadow: 0 4px 0 #b45309; }
+        .btn-reset-placar { background: #ef4444; box-shadow: 0 4px 0 #991b1b; font-size: 0.8rem; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <h1>FRUTA DA VELHA</h1>
+        <button class="btn-jogar" onclick="iniciarJogo()">JOGAR</button>
+    </div>
+
+    <h1>Fruta da Velha 🍓</h1>
+
+    <div class="placar">
+        <div>🍓 <span id="v-morango" class="pontos">0</span></div>
+        <div style="border-left: 2px solid #bbf7d0; padding-left: 20px;">🍋 <span id="v-limao" class="pontos">0</span></div>
+    </div>
+
+    <div style="margin: 10px;">
+        <select id="gameMode" onchange="resetBoard()" style="padding: 8px; border-radius: 8px; border: 2px solid #bbf7d0;">
+            <option value="pvp">Amigo (🍓 vs 🍋)</option>
+            <option value="pvc">Computador (🍓 vs 🤖)</option>
+        </select>
+    </div>
+
+    <div id="status">Clique em Sortear Início! 👇</div>
+
+    <div class="board">
+        <div class="cell" onclick="clique(0)"></div>
+        <div class="cell" onclick="clique(1)"></div>
+        <div class="cell" onclick="clique(2)"></div>
+        <div class="cell" onclick="clique(3)"></div>
+        <div class="cell" onclick="clique(4)"></div>
+        <div class="cell" onclick="clique(5)"></div>
+        <div class="cell" onclick="clique(6)"></div>
+        <div class="cell" onclick="clique(7)"></div>
+        <div class="cell" onclick="clique(8)"></div>
+    </div>
+
+    <br>
+    <div class="controles">
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-sorteio" onclick="sortearEIniciar()">🎲 Sortear Início</button>
+            <button onclick="resetBoard()">Limpar Mesa</button>
+        </div>
+        <button class="btn-reset-placar" onclick="zerarPlacar()">Zerar Placar Histórico</button>
+    </div>
+
+    <script>
+        let tabuleiro = ["", "", "", "", "", "", "", "", ""];
+        let jogadorAtual = "";
+        let ativo = false;
+
+        // Placar permanente
+        let vitoriasMorango = localStorage.getItem('vMorango') || 0;
+        let vitoriasLimao = localStorage.getItem('vLimao') || 0;
+        document.getElementById('v-morango').innerText = vitoriasMorango;
+        document.getElementById('v-limao').innerText = vitoriasLimao;
+
+        // Sons
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function tocarSom(tipo) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.connect(g); g.connect(audioCtx.destination);
+            if (tipo === 'clique') {
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+                g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            } else if (tipo === 'vitoria') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
+                g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            }
+            osc.start(); g.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function iniciarJogo() {
+            document.getElementById('splash-screen').style.transform = 'translateY(-100%)';
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function sortearEIniciar() {
+            resetBoard();
+            jogadorAtual = Math.random() > 0.5 ? "🍓" : "🍋";
+            ativo = true;
+            document.getElementById('status').innerText = "Sorteado: " + jogadorAtual;
+            if (document.getElementById('gameMode').value === "pvc" && jogadorAtual === "🍋") {
+                setTimeout(jogadaCPU, 800);
+            }
+        }
+
+        function clique(i) {
+            if (tabuleiro[i] !== "" || !ativo) return;
+            fazerJogada(i, jogadorAtual);
+            if (ativo && document.getElementById('gameMode').value === "pvc" && jogadorAtual === "🍋") {
+                setTimeout(jogadaCPU, 600);
+            }
+        }
+
+        function fazerJogada(i, fruta) {
+            tabuleiro[i] = fruta;
+            document.querySelectorAll('.cell')[i].innerText = fruta;
+            tocarSom('clique');
+            
+            if (checarVitoria()) {
+                document.getElementById('status').innerText = fruta + " venceu! 🎉";
+                ativo = false; tocarSom('vitoria');
+                if (fruta === "🍓") { vitoriasMorango++; localStorage.setItem('vMorango', vitoriasMorango); document.getElementById('v-morango').innerText = vitoriasMorango; }
+                else { vitoriasLimao++; localStorage.setItem('vLimao', vitoriasLimao); document.getElementById('v-limao').innerText = vitoriasLimao; }
+                return;
+            }
+
+            if (!tabuleiro.includes("")) {
+                document.getElementById('status').innerText = "Empate! 🥗";
+                ativo = false; return;
+            }
+
+            jogadorAtual = (jogadorAtual === "🍓") ? "🍋" : "🍓";
+            document.getElementById('status').innerText = "Vez do " + jogadorAtual;
+        }
+
+        // --- IA ARROJADA ---
+        function jogadaCPU() {
+            if (!ativo) return;
+            let escolha = buscarMelhorMovimento();
+            if (escolha === null) {
+                let vazias = tabuleiro.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+                escolha = vazias[Math.floor(Math.random() * vazias.length)];
+            }
+            fazerJogada(escolha, "🍋");
+        }
+
+        function buscarMelhorMovimento() {
+            const caminhos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            
+            // 1. Ganhar
+            for (let c of caminhos) {
+                let v = [tabuleiro[c[0]], tabuleiro[c[1]], tabuleiro[c[2]]];
+                if (v.filter(x => x === "🍋").length === 2 && v.filter(x => x === "").length === 1) return c[v.indexOf("")];
+            }
+            // 2. Bloquear
+            for (let c of caminhos) {
+                let v = [tabuleiro[c[0]], tabuleiro[c[1]], tabuleiro[c[2]]];
+                if (v.filter(x => x === "🍓").length === 2 && v.filter(x => x === "").length === 1) return c[v.indexOf("")];
+            }
+            // 3. Estratégia de Defesa contra Cantos Opostos
+            if (tabuleiro[4] === "🍋") {
+                if ((tabuleiro[0] === "🍓" && tabuleiro[8] === "🍓") || (tabuleiro[2] === "🍓" && tabuleiro[6] === "🍓")) {
+                    const laterais = [1, 3, 5, 7];
+                    const livres = laterais.filter(i => tabuleiro[i] === "");
+                    if (livres.length > 0) return livres[0];
+                }
+            }
+            // 4. Centro
+            if (tabuleiro[4] === "") return 4;
+            // 5. Cantos
+            const cantos = [0, 2, 6, 8].filter(i => tabuleiro[i] === "");
+            if (cantos.length > 0) return cantos[Math.floor(Math.random() * cantos.length)];
+
+            return null;
+        }
+
+        function checarVitoria() {
+            const c = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            return c.some(l => tabuleiro[l[0]] !== "" && tabuleiro[l[0]] === tabuleiro[l[1]] && tabuleiro[l[0]] === tabuleiro[l[2]]);
+        }
+
+        function resetBoard() {
+            tabuleiro = ["", "", "", "", "", "", "", "", ""];
+            ativo = false; jogadorAtual = "";
+            document.getElementById('status').innerText = "Clique em Sortear Início!";
+            document.querySelectorAll('.cell').forEach(c => c.innerText = "");
+        }
+
+        function zerarPlacar() {
+            if (confirm("Zerar placar?")) {
+                vitoriasMorango = 0; vitoriasLimao = 0;
+                localStorage.clear();
+                document.getElementById('v-morango').innerText = 0;
+                document.getElementById('v-limao').innerText = 0;
+            }
+        }
+    </script>
+</body>
+</html>
